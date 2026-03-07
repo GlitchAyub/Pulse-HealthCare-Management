@@ -1,0 +1,5 @@
+package com.healthreach.mobile
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
