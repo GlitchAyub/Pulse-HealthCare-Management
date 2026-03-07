@@ -4,6 +4,7 @@ import '../../core/app_theme.dart';
 import '../../core/auth_scope.dart';
 import '../../data/healthreach_api.dart';
 import '../../pages/partner/partner_dashboard_page.dart';
+import '../../pages/partner/partner_inventory_page.dart';
 import '../../pages/partner/partner_resources_page.dart';
 
 class PartnerShell extends StatefulWidget {
@@ -33,6 +34,11 @@ class _PartnerShellState extends State<PartnerShell> {
       icon: Icons.menu_book_outlined,
       page: const PartnerResourcesPage(),
     ),
+    _PartnerNavItem(
+      label: 'Inventory',
+      icon: Icons.inventory_2_outlined,
+      page: const PartnerInventoryPage(),
+    ),
   ];
 
   @override
@@ -44,7 +50,7 @@ class _PartnerShellState extends State<PartnerShell> {
   void _setIndex(int index) {
     setState(() {
       _selectedIndex = index;
-      if (index < 2) {
+      if (index < 3) {
         _bottomIndex = index;
       }
     });
@@ -142,6 +148,8 @@ class _PartnerShellState extends State<PartnerShell> {
               icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
           NavigationDestination(
               icon: Icon(Icons.menu_book_outlined), label: 'Resources'),
+          NavigationDestination(
+              icon: Icon(Icons.inventory_2_outlined), label: 'Inventory'),
         ],
       ),
     );
@@ -245,7 +253,7 @@ class _PartnerSidebar extends StatelessWidget {
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: selected
-                            ? AppTheme.skyBlue.withOpacity(0.16)
+                            ? AppTheme.skyBlue.withValues(alpha: 0.16)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -357,10 +365,12 @@ class _PartnerTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isNarrow = MediaQuery.of(context).size.width < 1000;
+    final compactProfile = MediaQuery.of(context).size.width < 560;
+    final horizontalPadding = compactProfile ? 12.0 : 20.0;
 
     return Container(
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: AppTheme.border)),
@@ -376,14 +386,18 @@ class _PartnerTopBar extends StatelessWidget {
                 );
               },
             ),
-          Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(color: AppTheme.textPrimary),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(color: AppTheme.textPrimary),
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 4),
           IconButton(
             onPressed: onNotificationsPressed,
             icon: Stack(
@@ -420,29 +434,41 @@ class _PartnerTopBar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: compactProfile ? 4 : 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            constraints:
+                compactProfile ? null : const BoxConstraints(maxWidth: 132),
+            padding: EdgeInsets.symmetric(
+              horizontal: compactProfile ? 8 : 12,
+              vertical: 6,
+            ),
             decoration: BoxDecoration(
               color: AppTheme.background,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: AppTheme.border),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const CircleAvatar(
                   radius: 14,
                   backgroundColor: AppTheme.softBlue,
                   child: Icon(Icons.person, size: 16, color: AppTheme.deepBlue),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  userName,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: AppTheme.textPrimary),
-                ),
+                if (!compactProfile) ...[
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      userName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(color: AppTheme.textPrimary),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

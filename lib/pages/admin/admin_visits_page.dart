@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
+import '../../core/auth_scope.dart';
 import '../../data/healthreach_api.dart';
 import '../../widgets/app_select.dart';
 
@@ -35,40 +36,58 @@ class _AdminVisitsPageState extends State<AdminVisitsPage> {
       _error = null;
     });
 
-    try {
-      final user = await _api.getCurrentUser();
-      final role = user['role']?.toString();
+    final role = AuthScope.of(context).user?.role;
+    String? loadError;
+    var sawUnauthorized = false;
 
-      List<Map<String, dynamic>> patients = const [];
-      List<Map<String, dynamic>> visits = const [];
-
-      if (_isRoleAllowed(role)) {
-        final rawPatients = await _api.getPatients(limit: 100);
-        final rawVisits = await _api.getVisits(limit: 20);
-        patients = rawPatients
-            .whereType<Map<String, dynamic>>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
-        visits = rawVisits
-            .whereType<Map<String, dynamic>>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
+    Future<List<Map<String, dynamic>>> safeList(
+      Future<List<dynamic>> Function() fn,
+    ) async {
+      try {
+        final items = await fn();
+        return items.whereType<Map>().map((item) {
+          return Map<String, dynamic>.from(
+            item.map((key, value) => MapEntry(key.toString(), value)),
+          );
+        }).toList();
+      } on ApiException catch (error) {
+        sawUnauthorized = sawUnauthorized || _isUnauthorized(error);
+        if (!_isSoftError(error) && loadError == null) {
+          loadError = error.message;
+        }
+        return const <Map<String, dynamic>>[];
+      } catch (error) {
+        loadError ??= error.toString();
+        return const <Map<String, dynamic>>[];
       }
-
-      if (!mounted) return;
-      setState(() {
-        _role = role;
-        _patients = patients;
-        _visits = visits;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = _errorMessage(error);
-        _loading = false;
-      });
     }
+
+    List<Map<String, dynamic>> patients = const [];
+    List<Map<String, dynamic>> visits = const [];
+
+    if (_isRoleAllowed(role)) {
+      final results = await Future.wait<List<Map<String, dynamic>>>([
+        safeList(() => _api.getPatients(limit: 100)),
+        safeList(() => _api.getVisits(limit: 20)),
+      ]);
+      patients = results[0];
+      visits = results[1];
+    }
+
+    if (!mounted) return;
+
+    if (sawUnauthorized && patients.isEmpty && visits.isEmpty) {
+      await AuthScope.of(context).logout();
+      return;
+    }
+
+    setState(() {
+      _role = role;
+      _patients = patients;
+      _visits = visits;
+      _error = loadError;
+      _loading = false;
+    });
   }
 
   Future<void> _reloadVisits() async {
@@ -88,6 +107,17 @@ class _AdminVisitsPageState extends State<AdminVisitsPage> {
       if (!mounted) return;
       setState(() {
         _visits = visits;
+      });
+    } on ApiException catch (error) {
+      if (_isUnauthorized(error) && mounted) {
+        await AuthScope.of(context).logout();
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        if (!_isSoftError(error)) {
+          _error = error.message;
+        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -109,6 +139,13 @@ class _AdminVisitsPageState extends State<AdminVisitsPage> {
       await _reloadVisits();
       _showSnack('Visit saved successfully.');
       return true;
+    } on ApiException catch (error) {
+      if (_isUnauthorized(error) && mounted) {
+        await AuthScope.of(context).logout();
+        return false;
+      }
+      _showSnack(error.message);
+      return false;
     } catch (error) {
       _showSnack(_errorMessage(error));
       return false;
@@ -193,6 +230,18 @@ class _AdminVisitsPageState extends State<AdminVisitsPage> {
     if (error is ApiException) return error.message;
     return error.toString();
   }
+
+  bool _isSoftError(ApiException error) {
+    final message = error.message.toLowerCase();
+    return error.statusCode == 401 ||
+        error.statusCode == 403 ||
+        error.statusCode == 404 ||
+        error.statusCode == 405 ||
+        error.statusCode == 501 ||
+        message.contains('returned html instead of json');
+  }
+
+  bool _isUnauthorized(ApiException error) => error.statusCode == 401;
 
   @override
   Widget build(BuildContext context) {

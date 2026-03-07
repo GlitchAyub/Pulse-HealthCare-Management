@@ -212,27 +212,64 @@ class _PartnerDashboardPageState extends State<PartnerDashboardPage> {
               },
             ),
             const SizedBox(height: 18),
-            Row(
-              children: [
-                _ChipTab(label: 'Analytics', selected: true),
-                const SizedBox(width: 8),
-                const _ChipTab(label: 'Trends', selected: false),
-                const Spacer(),
-                AppDropdownButton<String>(
-                  value: 'CSV',
-                  items: const [
-                    DropdownMenuItem(value: 'CSV', child: Text('CSV')),
-                    DropdownMenuItem(value: 'PDF', child: Text('PDF')),
-                  ],
-                  onChanged: (_) {},
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 700;
+                final exportType = SizedBox(
+                  width: compact ? 104 : null,
+                  child: AppDropdownButton<String>(
+                    value: 'CSV',
+                    items: const [
+                      DropdownMenuItem(value: 'CSV', child: Text('CSV')),
+                      DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+                    ],
+                    onChanged: (_) {},
+                    isExpanded: compact,
+                  ),
+                );
+                final exportButton = OutlinedButton.icon(
                   onPressed: () {},
                   icon: const Icon(Icons.download_outlined),
-                  label: const Text('Export'),
-                ),
-              ],
+                  label: Text(compact ? 'Export' : 'Export Data'),
+                );
+
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: const [
+                          _ChipTab(label: 'Analytics', selected: true),
+                          _ChipTab(label: 'Trends', selected: false),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          exportType,
+                          exportButton,
+                        ],
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    const _ChipTab(label: 'Analytics', selected: true),
+                    const SizedBox(width: 8),
+                    const _ChipTab(label: 'Trends', selected: false),
+                    const Spacer(),
+                    exportType,
+                    const SizedBox(width: 8),
+                    exportButton,
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             LayoutBuilder(
@@ -347,12 +384,16 @@ class _PendingInvitationsCard extends StatelessWidget {
             children: [
               const Icon(Icons.mail_outline_rounded, color: AppTheme.deepBlue),
               const SizedBox(width: 8),
-              Text(
-                'Pending Organization Invitations (${invitations.length})',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleSmall
-                    ?.copyWith(color: AppTheme.textPrimary),
+              Expanded(
+                child: Text(
+                  'Pending Organization Invitations (${invitations.length})',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(color: AppTheme.textPrimary),
+                ),
               ),
             ],
           ),
@@ -396,44 +437,62 @@ class _PendingInvitationRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.border),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  orgName,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: AppTheme.textPrimary),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _roleLabel(role),
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: AppTheme.textMuted),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Expires on $expires',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: AppTheme.textMuted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 430;
+          final details = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                orgName,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _roleLabel(role),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Expires on $expires',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppTheme.textMuted),
+              ),
+            ],
+          );
+
+          final button = ElevatedButton(
             onPressed: onReview,
             child: const Text('Review & Accept'),
-          ),
-        ],
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                details,
+                const SizedBox(height: 10),
+                SizedBox(width: double.infinity, child: button),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: details),
+              const SizedBox(width: 8),
+              button,
+            ],
+          );
+        },
       ),
     );
   }

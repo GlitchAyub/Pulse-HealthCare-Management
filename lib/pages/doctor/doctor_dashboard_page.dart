@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/api_client.dart';
 import '../../core/app_theme.dart';
 import '../../core/auth_scope.dart';
 import '../../data/healthreach_api.dart';
@@ -33,27 +34,95 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
       _error = null;
     });
 
-    try {
-      final stats = await _api.getDashboardStats();
-      final patients = await _api.getPatients(limit: 10);
-      final pending = await _api.getAppointmentRequests(status: 'pending');
-      final pendingInvitations = await _api.getMyPendingInvitations();
-      if (!mounted) return;
-      setState(() {
-        _stats = stats;
-        _patients = patients;
-        _pending = pending;
-        _pendingInvitations = pendingInvitations;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+    String? loadError;
+    var sawUnauthorized = false;
+
+    Future<Map<String, dynamic>> safeMap(
+      Future<Map<String, dynamic>> Function() fn,
+    ) async {
+      try {
+        return await fn();
+      } on ApiException catch (error) {
+        sawUnauthorized = sawUnauthorized || _isUnauthorized(error);
+        if (!_isSoftError(error) && loadError == null) {
+          loadError = error.message;
+        }
+        return <String, dynamic>{};
+      } catch (error) {
+        final text = error.toString().toLowerCase();
+        if (text.contains('<!doctype html') || text.contains('<html')) {
+          return <String, dynamic>{};
+        }
+        loadError ??= error.toString();
+        return <String, dynamic>{};
+      }
     }
+
+    Future<List<dynamic>> safeList(
+      Future<List<dynamic>> Function() fn,
+    ) async {
+      try {
+        return await fn();
+      } on ApiException catch (error) {
+        sawUnauthorized = sawUnauthorized || _isUnauthorized(error);
+        if (!_isSoftError(error) && loadError == null) {
+          loadError = error.message;
+        }
+        return const <dynamic>[];
+      } catch (error) {
+        final text = error.toString().toLowerCase();
+        if (text.contains('<!doctype html') || text.contains('<html')) {
+          return const <dynamic>[];
+        }
+        loadError ??= error.toString();
+        return const <dynamic>[];
+      }
+    }
+
+    final results = await Future.wait<dynamic>([
+      safeMap(_api.getDashboardStats),
+      safeList(() => _api.getPatients(limit: 10)),
+      safeList(() => _api.getAppointmentRequests(status: 'pending')),
+      safeList(_api.getMyPendingInvitations),
+    ]);
+
+    if (!mounted) return;
+
+    final stats = Map<String, dynamic>.from(results[0] as Map);
+    final patients = List<dynamic>.from(results[1] as List);
+    final pending = List<dynamic>.from(results[2] as List);
+    final pendingInvitations = List<dynamic>.from(results[3] as List);
+
+    if (sawUnauthorized &&
+        stats.isEmpty &&
+        patients.isEmpty &&
+        pending.isEmpty &&
+        pendingInvitations.isEmpty) {
+      await AuthScope.of(context).logout();
+      return;
+    }
+
+    setState(() {
+      _stats = stats;
+      _patients = patients;
+      _pending = pending;
+      _pendingInvitations = pendingInvitations;
+      _error = loadError;
+      _loading = false;
+    });
   }
+
+  bool _isSoftError(ApiException error) {
+    final message = error.message.toLowerCase();
+    return error.statusCode == 401 ||
+        error.statusCode == 403 ||
+        error.statusCode == 404 ||
+        error.statusCode == 405 ||
+        error.statusCode == 501 ||
+        message.contains('returned html instead of json');
+  }
+
+  bool _isUnauthorized(ApiException error) => error.statusCode == 401;
 
   Future<void> _reviewInvitation(Map<String, dynamic> invitation) async {
     final token = invitation['token']?.toString().trim() ?? '';

@@ -43,7 +43,10 @@ class AuthController extends ChangeNotifier {
           _user = User.fromJson(data);
           await _sessionStore.saveUser(data);
         } catch (error) {
-          if (_user == null) {
+          if (_isUnauthorized(error)) {
+            _user = null;
+            await _sessionStore.clear();
+          } else if (_user == null) {
             rethrow;
           }
         }
@@ -135,5 +138,10 @@ class AuthController extends ChangeNotifier {
       return error.message;
     }
     return error.toString();
+  }
+
+  bool _isUnauthorized(Object error) {
+    return error is ApiException &&
+        (error.statusCode == 401 || error.statusCode == 403);
   }
 }

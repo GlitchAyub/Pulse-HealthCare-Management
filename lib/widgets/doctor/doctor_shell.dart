@@ -11,6 +11,21 @@ import '../../pages/doctor/doctor_dashboard_page.dart';
 import '../../pages/doctor/doctor_education_page.dart';
 import '../../pages/doctor/doctor_medications_page.dart';
 
+const _doctorDashboardId = 'dashboard';
+const _doctorPatientsId = 'patients';
+const _doctorVisitsId = 'visits';
+const _doctorTelehealthId = 'telehealth';
+const _doctorMedicationsId = 'medications';
+const _doctorInventoryId = 'inventory';
+const _doctorMessagesId = 'messages';
+const _doctorEducationId = 'education';
+const _bottomNavigationIds = [
+  _doctorDashboardId,
+  _doctorPatientsId,
+  _doctorVisitsId,
+  _doctorTelehealthId,
+];
+
 class DoctorShell extends StatefulWidget {
   const DoctorShell({super.key});
 
@@ -21,69 +36,29 @@ class DoctorShell extends StatefulWidget {
 class _DoctorShellState extends State<DoctorShell> {
   final _api = HealthReachApi();
 
-  int _selectedIndex = 0;
-  int _bottomIndex = 0;
+  String _selectedItemId = _doctorDashboardId;
+  String _bottomItemId = _doctorDashboardId;
   bool _collapsed = false;
   int _pendingInvitationCount = 0;
   bool _loggingOut = false;
-
-  late final List<_DoctorNavItem> _items = [
-    _DoctorNavItem(
-      label: 'Dashboard',
-      icon: Icons.dashboard_outlined,
-      page: const DoctorDashboardPage(),
-    ),
-    _DoctorNavItem(
-      label: 'Patients',
-      icon: Icons.people_outline,
-      page: const AdminPatientsPage(),
-    ),
-    _DoctorNavItem(
-      label: 'Visits',
-      icon: Icons.assignment_outlined,
-      page: const AdminVisitsPage(),
-    ),
-    _DoctorNavItem(
-      label: 'Telehealth',
-      icon: Icons.videocam_outlined,
-      page: const AdminTelehealthPage(),
-    ),
-    _DoctorNavItem(
-      label: 'Medications',
-      icon: Icons.medical_services_outlined,
-      page: const DoctorMedicationsPage(),
-    ),
-    _DoctorNavItem(
-      label: 'Inventory',
-      icon: Icons.inventory_2_outlined,
-      page: const AdminInventoryPage(),
-    ),
-    _DoctorNavItem(
-      label: 'Messages',
-      icon: Icons.chat_bubble_outline,
-      page: const AdminMessagesPage(),
-    ),
-    _DoctorNavItem(
-      label: 'Education',
-      icon: Icons.school_outlined,
-      page: const DoctorEducationPage(),
-    ),
-  ];
+  bool _hasOrganizationAccess = false;
 
   @override
   void initState() {
     super.initState();
     _loadPendingInvitationCount();
+    _loadOrganizationAccess();
   }
 
-  void _setIndex(int index) {
+  void _setItem(String id) {
     setState(() {
-      _selectedIndex = index;
-      if (index < 4) {
-        _bottomIndex = index;
+      _selectedItemId = id;
+      if (_bottomNavigationIds.contains(id)) {
+        _bottomItemId = id;
       }
     });
     _loadPendingInvitationCount();
+    _loadOrganizationAccess();
   }
 
   Future<void> _loadPendingInvitationCount() async {
@@ -101,8 +76,28 @@ class _DoctorShellState extends State<DoctorShell> {
     }
   }
 
+  Future<void> _loadOrganizationAccess() async {
+    try {
+      final organization = await _api.getMyOrganization();
+      final orgId = organization['id']?.toString().trim() ?? '';
+      if (!mounted) return;
+      setState(() {
+        _hasOrganizationAccess = orgId.isNotEmpty;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasOrganizationAccess = false;
+        if (_selectedItemId == _doctorInventoryId) {
+          _selectedItemId = _doctorDashboardId;
+          _bottomItemId = _doctorDashboardId;
+        }
+      });
+    }
+  }
+
   void _handleNotificationTap() {
-    _setIndex(0);
+    _setItem(_doctorDashboardId);
   }
 
   Future<void> _logout() async {
@@ -116,6 +111,11 @@ class _DoctorShellState extends State<DoctorShell> {
   @override
   Widget build(BuildContext context) {
     final user = AuthScope.of(context).user;
+    final hasOrganization =
+        _hasOrganizationAccess || _userHasOrganization(user);
+    final items = _items(hasOrganization);
+    final selectedIndex = _selectedIndexForItems(items);
+    final selectedItem = items[selectedIndex];
     final displayName =
         _displayName(user?.firstName, user?.lastName, user?.email);
     final truncatedName = _truncateName(displayName);
@@ -127,11 +127,11 @@ class _DoctorShellState extends State<DoctorShell> {
           : Drawer(
               child: SafeArea(
                 child: _DoctorSidebar(
-                  items: _items,
-                  selectedIndex: _selectedIndex,
+                  items: items,
+                  selectedItemId: selectedItem.id,
                   collapsed: false,
                   onToggle: null,
-                  onSelect: _setIndex,
+                  onSelect: _setItem,
                   loggingOut: _loggingOut,
                   onLogout: _logout,
                 ),
@@ -141,11 +141,11 @@ class _DoctorShellState extends State<DoctorShell> {
         children: [
           if (isWide)
             _DoctorSidebar(
-              items: _items,
-              selectedIndex: _selectedIndex,
+              items: items,
+              selectedItemId: selectedItem.id,
               collapsed: _collapsed,
               onToggle: () => setState(() => _collapsed = !_collapsed),
-              onSelect: _setIndex,
+              onSelect: _setItem,
               loggingOut: _loggingOut,
               onLogout: _logout,
             ),
@@ -153,15 +153,15 @@ class _DoctorShellState extends State<DoctorShell> {
             child: Column(
               children: [
                 _DoctorTopBar(
-                  title: _items[_selectedIndex].label,
+                  title: selectedItem.label,
                   userName: truncatedName,
                   pendingInvitationCount: _pendingInvitationCount,
                   onNotificationsPressed: _handleNotificationTap,
                 ),
                 Expanded(
                   child: IndexedStack(
-                    index: _selectedIndex,
-                    children: _items.map((item) => item.page).toList(),
+                    index: selectedIndex,
+                    children: items.map((item) => item.page).toList(),
                   ),
                 ),
               ],
@@ -171,7 +171,7 @@ class _DoctorShellState extends State<DoctorShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _bottomIndex,
-        onDestinationSelected: (index) => _setIndex(index),
+        onDestinationSelected: (index) => _setItem(_bottomNavigationIds[index]),
         destinations: const [
           NavigationDestination(
               icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
@@ -186,6 +186,100 @@ class _DoctorShellState extends State<DoctorShell> {
     );
   }
 
+  List<_DoctorNavItem> _items(bool hasOrganization) {
+    return [
+      const _DoctorNavItem(
+        id: _doctorDashboardId,
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+        page: KeyedSubtree(
+          key: ValueKey(_doctorDashboardId),
+          child: DoctorDashboardPage(),
+        ),
+      ),
+      const _DoctorNavItem(
+        id: _doctorPatientsId,
+        label: 'Patients',
+        icon: Icons.people_outline,
+        page: KeyedSubtree(
+          key: ValueKey(_doctorPatientsId),
+          child: AdminPatientsPage(),
+        ),
+      ),
+      const _DoctorNavItem(
+        id: _doctorVisitsId,
+        label: 'Visits',
+        icon: Icons.assignment_outlined,
+        page: KeyedSubtree(
+          key: ValueKey(_doctorVisitsId),
+          child: AdminVisitsPage(),
+        ),
+      ),
+      const _DoctorNavItem(
+        id: _doctorTelehealthId,
+        label: 'Telehealth',
+        icon: Icons.videocam_outlined,
+        page: KeyedSubtree(
+          key: ValueKey(_doctorTelehealthId),
+          child: AdminTelehealthPage(),
+        ),
+      ),
+      const _DoctorNavItem(
+        id: _doctorMedicationsId,
+        label: 'Medications',
+        icon: Icons.medical_services_outlined,
+        page: KeyedSubtree(
+          key: ValueKey(_doctorMedicationsId),
+          child: DoctorMedicationsPage(),
+        ),
+      ),
+      if (hasOrganization)
+        const _DoctorNavItem(
+          id: _doctorInventoryId,
+          label: 'Inventory',
+          icon: Icons.inventory_2_outlined,
+          page: KeyedSubtree(
+            key: ValueKey(_doctorInventoryId),
+            child: AdminInventoryPage(),
+          ),
+        ),
+      const _DoctorNavItem(
+        id: _doctorMessagesId,
+        label: 'Messages',
+        icon: Icons.chat_bubble_outline,
+        page: KeyedSubtree(
+          key: ValueKey(_doctorMessagesId),
+          child: AdminMessagesPage(),
+        ),
+      ),
+      const _DoctorNavItem(
+        id: _doctorEducationId,
+        label: 'Education',
+        icon: Icons.school_outlined,
+        page: KeyedSubtree(
+          key: ValueKey(_doctorEducationId),
+          child: DoctorEducationPage(),
+        ),
+      ),
+    ];
+  }
+
+  int _selectedIndexForItems(List<_DoctorNavItem> items) {
+    final selectedIndex =
+        items.indexWhere((item) => item.id == _selectedItemId);
+    return selectedIndex >= 0 ? selectedIndex : 0;
+  }
+
+  int get _bottomIndex {
+    final index = _bottomNavigationIds.indexOf(_bottomItemId);
+    return index >= 0 ? index : 0;
+  }
+
+  bool _userHasOrganization(dynamic user) {
+    final orgId = user?.organizationId?.toString().trim() ?? '';
+    return orgId.isNotEmpty;
+  }
+
   String _displayName(String? first, String? last, String? email) {
     final full = '${first ?? ''} ${last ?? ''}'.trim();
     if (full.isNotEmpty) return full;
@@ -196,11 +290,13 @@ class _DoctorShellState extends State<DoctorShell> {
 
 class _DoctorNavItem {
   const _DoctorNavItem({
+    required this.id,
     required this.label,
     required this.icon,
     required this.page,
   });
 
+  final String id;
   final String label;
   final IconData icon;
   final Widget page;
@@ -209,7 +305,7 @@ class _DoctorNavItem {
 class _DoctorSidebar extends StatelessWidget {
   const _DoctorSidebar({
     required this.items,
-    required this.selectedIndex,
+    required this.selectedItemId,
     required this.collapsed,
     required this.onToggle,
     required this.onSelect,
@@ -218,10 +314,10 @@ class _DoctorSidebar extends StatelessWidget {
   });
 
   final List<_DoctorNavItem> items;
-  final int selectedIndex;
+  final String selectedItemId;
   final bool collapsed;
   final VoidCallback? onToggle;
-  final ValueChanged<int> onSelect;
+  final ValueChanged<String> onSelect;
   final bool loggingOut;
   final VoidCallback onLogout;
 
@@ -275,9 +371,9 @@ class _DoctorSidebar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 itemBuilder: (context, index) {
                   final item = items[index];
-                  final selected = index == selectedIndex;
+                  final selected = item.id == selectedItemId;
                   return InkWell(
-                    onTap: () => onSelect(index),
+                    onTap: () => onSelect(item.id),
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
                       padding: const EdgeInsets.symmetric(

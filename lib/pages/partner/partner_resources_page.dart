@@ -137,11 +137,15 @@ class _PartnerResourcesPageState extends State<PartnerResourcesPage> {
                     const Icon(Icons.menu_book_outlined,
                         color: AppTheme.deepBlue),
                     const SizedBox(width: 8),
-                    Text('Health Education',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: AppTheme.textPrimary)),
+                    Expanded(
+                      child: Text('Health Education',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(color: AppTheme.textPrimary)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -232,6 +236,7 @@ class _CategoryCard extends StatelessWidget {
         border: Border.all(color: AppTheme.border),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 36,
@@ -248,12 +253,16 @@ class _CategoryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context)
                         .textTheme
                         .labelLarge
                         ?.copyWith(color: AppTheme.textPrimary)),
                 const SizedBox(height: 4),
                 Text(subtitle,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
@@ -288,24 +297,16 @@ class _ResourceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.border),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.article_outlined,
-                color: AppTheme.deepBlue, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 460;
+          final details = Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context)
                         .textTheme
                         .labelLarge
@@ -319,15 +320,67 @@ class _ResourceCard extends StatelessWidget {
                         ?.copyWith(color: AppTheme.textMuted)),
                 const SizedBox(height: 4),
                 Text('$downloads downloads  -  $language',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context)
                         .textTheme
                         .labelSmall
                         ?.copyWith(color: AppTheme.textMuted)),
               ],
             ),
-          ),
-          TextButton(onPressed: () {}, child: const Text('View')),
-        ],
+          );
+          final action = Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(onPressed: () {}, child: const Text('View')),
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.article_outlined,
+                          color: AppTheme.deepBlue, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    details,
+                  ],
+                ),
+                const SizedBox(height: 8),
+                action,
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.article_outlined,
+                    color: AppTheme.deepBlue, size: 18),
+              ),
+              const SizedBox(width: 12),
+              details,
+              const SizedBox(width: 8),
+              action,
+            ],
+          );
+        },
       ),
     );
   }
