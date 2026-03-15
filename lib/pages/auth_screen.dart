@@ -278,6 +278,9 @@ class _SignupFormState extends State<SignupForm> {
   String _role = 'patient';
   bool _obscure = true;
 
+  static const String _patientSignupMessage =
+      'Patient access is created by clinic staff. Ask your provider or organization admin to register your account and share your login details.';
+
   @override
   void dispose() {
     _firstNameController.dispose();
@@ -288,6 +291,11 @@ class _SignupFormState extends State<SignupForm> {
   }
 
   Future<void> _submit() async {
+    if (_role == 'patient') {
+      await _showErrorDialog(context, _patientSignupMessage);
+      return;
+    }
+
     final email = _emailController.text.trim();
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -399,7 +407,10 @@ class _SignupFormState extends State<SignupForm> {
               value: _role,
               decoration: const InputDecoration(labelText: 'Role'),
               items: const [
-                DropdownMenuItem(value: 'patient', child: Text('Patient')),
+                DropdownMenuItem(
+                  value: 'patient',
+                  child: Text('Patient (Clinic-created)'),
+                ),
                 DropdownMenuItem(
                     value: 'medical_professional',
                     child: Text('Medical Professional')),
@@ -412,6 +423,41 @@ class _SignupFormState extends State<SignupForm> {
                 if (value != null) setState(() => _role = value);
               },
             ),
+            if (_role == 'patient') ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.skyBlue.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: AppTheme.deepBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _patientSignupMessage,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppTheme.textPrimary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -423,7 +469,11 @@ class _SignupFormState extends State<SignupForm> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('CREATE ACCOUNT'),
+                    : Text(
+                        _role == 'patient'
+                            ? 'HOW TO GET ACCESS'
+                            : 'CREATE ACCOUNT',
+                      ),
               ),
             ),
             const SizedBox(height: 12),
