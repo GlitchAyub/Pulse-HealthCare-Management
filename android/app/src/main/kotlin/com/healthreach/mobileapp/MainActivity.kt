@@ -1,4 +1,4 @@
-package com.healthreach.mobile
+package com.healthreach.mobileapp
 
 import io.flutter.embedding.android.FlutterActivity
 
